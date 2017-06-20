@@ -2,49 +2,38 @@ package grailsangular
 
 import groovy.sql.Sql
 
+import static grails.async.Promises.task
+
 class PersonController {
 
     def dataSource
 
     def index() {
 
-        println "Current Thread:::" + Thread.currentThread().toString()
-
         Sql sql = new Sql(dataSource)
         def sum = 0;
 
-/*
-            //Async way is depreciated now.
-            def tasks = callTask.collect{z->
-            task{
-                println "Calling Stored Procedure::: " + z + "  Current Thread::" + Thread.currentThread().toString()
+        println "Main Thread ::" + Thread.currentThread()
 
-                if(z == 1){
-                    def row = sql.rows("{call Proc_1()}");
-                    sum = sum + Integer.parseInt(row[0].get("output").toString());
-                }else if( z == 2){
-                    def row = sql.rows("{call Proc_2()}");
-                    sum = sum + Integer.parseInt(row[0].get("output").toString());
-                }else if( z == 3){
-                    def row = sql.rows("{call Proc_3()}");
-                    sum = sum + Integer.parseInt(row[0].get("output").toString());
-                }else if( z == 4){
-                    def row = sql.rows("{call Proc_4()}");
-                    sum = sum + Integer.parseInt(row[0].get("output").toString());
-                }
-
-                sql.close()
-
-            }
+        def p = task {
+            // Long running task
+            println 'Off to do something now ... ' + Thread.currentThread()
+            def row = sql.rows("{call Proc_1()}");
+            println 'Called Stored procedure'
+            sum = sum + Integer.parseInt(row[0].get("output").toString());
+            return sum
         }
-        waitAll(tasks)
-*/
 
-
-        def row = sql.rows("{call Proc_1()}");
-        sum = sum + Integer.parseInt(row[0].get("output").toString());
-
-        render "SUM ::" + sum
+        p.onError { Throwable err ->
+            println "An error occured ${err.message}"
+        }
+        p.onComplete { result ->
+            println "THREAD HERE !!!!::" + Thread.currentThread()
+            println "Promise returned : " + result
+            render "Result::" + result;
+        }
+        println 'Prove the task is running in the background.'
+        def res = p.get()
     }
 
     def newPerson(){
